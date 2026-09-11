@@ -7,15 +7,14 @@ from schemas import (
     TokenResponse,
     UserResponse,
 )
-# NOTE: once we move to an in mem DB, we should not use lambda for dependency injection
-from services.auth_service import AuthService, auth_service
+from services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     payload: UserRegisterRequest,
-    service: AuthService = Depends(lambda: auth_service),
+    service: AuthService = Depends(AuthService),
 ):
     """Register a new user account."""
     return service.register_user(payload)
@@ -24,7 +23,7 @@ async def register(
 @router.post("/login", response_model=TokenResponse)
 async def login(
     payload: UserLoginRequest,
-    service: AuthService = Depends(lambda: auth_service),
+    service: AuthService = Depends(AuthService),
 ):
     """Authenticate and obtain JWT bearer token."""
     return service.authenticate(payload)

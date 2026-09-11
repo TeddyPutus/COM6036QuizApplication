@@ -1,14 +1,14 @@
 from datetime import datetime, timezone
 import uuid
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Depends
 
-from repositories.user_repo import UserEntity, UserRepository, user_repository
+from repositories.user_repo import UserEntity, UserRepository
 from schemas import TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse, UserRole
 from utils.security import create_access_token, hash_password, verify_password
 
 
 class AuthService:
-    def __init__(self, repo: UserRepository = user_repository) -> None:
+    def __init__(self, repo: UserRepository = Depends(UserRepository)) -> None:
         self.repo = repo
 
     def register_user(self, payload: UserRegisterRequest) -> UserResponse:
