@@ -1,38 +1,72 @@
-from typing import List
-from fastapi import APIRouter, status
+# routers/attempts.py
+from typing import Annotated, List
+from fastapi import APIRouter, Depends, status
+
+from dependencies import get_current_user
 from schemas import (
+    AttemptResultResponse,
     AttemptStartRequest,
     AttemptStartResponse,
     AttemptSubmitRequest,
-    AttemptResultResponse,
+    UserResponse,
+)
+from services.attempt_service import AttemptService
+from services.attempt_service import AttemptService, StudentAnalyticsSummary
+
+router = APIRouter(
+    prefix="/attempts",
+    tags=["Quiz Attempts & History"],
+    dependencies=[Depends(get_current_user)],
 )
 
-router = APIRouter(prefix="/attempts", tags=["Quiz Attempts"])
-
+# --- Write Operations (Delegated to AttemptService) ---
 
 @router.post("/start", response_model=AttemptStartResponse, status_code=status.HTTP_201_CREATED)
-async def start_attempt(payload: AttemptStartRequest):
-    """Initialize an attempt session and lock in the server-side start timer."""
-    # Delegates to ScoringService.start_attempt(user_id, payload.quiz_id)
-    pass
+async def start_attempt(
+    payload: AttemptStartRequest,
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
+    service: Annotated[AttemptService, Depends(AttemptService)],
+):
+    return service.start_attempt(user_id=current_user.id, quiz_id=payload.quiz_id)
 
 
 @router.post("/{attempt_id}/submit", response_model=AttemptResultResponse)
-async def submit_attempt(attempt_id: str, payload: AttemptSubmitRequest):
-    """Submit student answers. Executes server-side grading and records score."""
-    # Delegates to ScoringService.evaluate_submission(attempt_id, payload.answers)
-    pass
+async def submit_attempt(
+    attempt_id: str,
+    payload: AttemptSubmitRequest,
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
+    service: Annotated[AttemptService, Depends(AttemptService)],
+):
+    return service.evaluate_submission(
+        user_id=current_user.id, attempt_id=attempt_id, answers=payload.answers
+    )
+
+
+# --- Read & Review Operations (Delegated to HistoryService) ---
+
+@router.get("/history", response_model=List[AttemptResultResponse])
+async def get_attempt_history(
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
+    history_service: Annotated[AttemptService, Depends(AttemptService)],
+):
+    """Retrieve all past quiz attempts for the logged-in student."""
+    return history_service.get_user_history(user_id=current_user.id)
+
+
+@router.get("/metrics", response_model=StudentAnalyticsSummary)
+async def get_student_metrics(
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
+    history_service: Annotated[AttemptService, Depends(AttemptService)],
+):
+    """Retrieve aggregate performance indicators (pass rate, average score)."""
+    return history_service.get_student_summary_metrics(user_id=current_user.id)
 
 
 @router.get("/{attempt_id}", response_model=AttemptResultResponse)
-async def get_attempt_result(attempt_id: str):
-    """Fetch completed attempt score, pass/fail status, and explanation breakdown."""
-    # Delegates to HistoryService.get_attempt_breakdown(attempt_id)
-    pass
-
-
-@router.get("/history", response_model=List[AttemptResultResponse])
-async def get_attempt_history():
-    """Fetch past attempts and progress history for the active student."""
-    # Delegates to HistoryService.get_user_history(user_id)
-    pass
+async def get_attempt_result(
+    attempt_id: str,
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
+    history_service: Annotated[AttemptService, Depends(AttemptService)],
+):
+    """Retrieve complete answer-by-answer breakdown for a finished attempt."""
+    return history_service.get_attempt_detail(user_id=current_user.id, attempt_id=attempt_id)
