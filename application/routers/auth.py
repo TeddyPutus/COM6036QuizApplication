@@ -1,30 +1,38 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, Depends
+
+from dependencies import get_current_user
 from schemas import (
     UserRegisterRequest,
     UserLoginRequest,
     TokenResponse,
     UserResponse,
 )
+# NOTE: once we move to an in mem DB, we should not use lambda for dependency injection
+from services.auth_service import AuthService, auth_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(payload: UserRegisterRequest):
+async def register(
+    payload: UserRegisterRequest,
+    service: AuthService = Depends(lambda: auth_service),
+):
     """Register a new user account."""
-    # Delegates to AuthService.register_user(payload)
-    pass
+    return service.register_user(payload)
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(payload: UserLoginRequest):
+async def login(
+    payload: UserLoginRequest,
+    service: AuthService = Depends(lambda: auth_service),
+):
     """Authenticate and obtain JWT bearer token."""
-    # Delegates to AuthService.authenticate(payload.email, payload.password)
-    pass
+    return service.authenticate(payload)
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_profile():
+async def get_current_user_profile(
+    current_user: UserResponse = Depends(get_current_user),
+):
     """Return profile for the currently authenticated session."""
-    # Decoded from JWT via auth middleware dependency
-    pass
+    return current_user

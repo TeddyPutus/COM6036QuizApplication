@@ -1,3 +1,4 @@
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -30,3 +31,12 @@ app.include_router(attempts.router, prefix=API_PREFIX)
 async def health_check():
     """Health check endpoint for load balancers / container probes."""
     return {"status": "ok", "tier": "application"}
+
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host="127.0.0.1",
+        port=8000,
+        # reload=True,
+    )
