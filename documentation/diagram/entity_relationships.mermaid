@@ -1,0 +1,66 @@
+erDiagram
+    USERS {
+        text id PK "UUID"
+        text email UK "Unique student/instructor email"
+        text full_name "Display name"
+        text role "student | instructor | admin"
+        text hashed_password "Argon2/Bcrypt hash"
+        timestamptz created_at
+    }
+
+    QUIZZES {
+        text id PK "UUID"
+        text title "Quiz title"
+        text description "Optional overview"
+        text subject "Category/tag"
+        integer time_limit_minutes "Countdown duration"
+        double_precision passing_score_percentage "Passing threshold"
+        boolean is_published "Catalog visibility"
+        boolean is_deleted "Soft-delete flag"
+        timestamptz created_at
+    }
+
+    QUESTIONS {
+        text id PK "UUID"
+        text quiz_id FK "REFERENCES quizzes(id) ON DELETE CASCADE"
+        text prompt "Question text"
+        integer points "Score weight"
+        text explanation "Post-test review note"
+    }
+
+    OPTIONS {
+        text id PK "UUID"
+        text question_id FK "REFERENCES questions(id) ON DELETE CASCADE"
+        text text "Option choice display text"
+        boolean is_correct "Grading flag"
+    }
+
+    ATTEMPTS {
+        text id PK "UUID"
+        text user_id FK "REFERENCES users(id)"
+        text quiz_id FK "REFERENCES quizzes(id)"
+        timestamptz started_at "Session creation"
+        timestamptz expires_at "Hard cutoff timestamp"
+        timestamptz completed_at "Submission timestamp"
+        double_precision score "Percentage grade"
+        integer total_points "Max possible points"
+        integer earned_points "Actual awarded points"
+        boolean passed "Pass/fail outcome"
+    }
+
+    ATTEMPT_RESPONSES {
+        text id PK "UUID"
+        text attempt_id FK "REFERENCES attempts(id) ON DELETE CASCADE"
+        text question_id "Reference to source question"
+        text prompt "Immutable prompt snapshot"
+        text selected_option_id "User answer"
+        text correct_option_id "Correct answer snapshot"
+        boolean is_correct "Item result"
+        text explanation "Explanation snapshot"
+    }
+
+    USERS ||--o{ ATTEMPTS : "submits"
+    QUIZZES ||--o{ ATTEMPTS : "tracks"
+    QUIZZES ||--o{ QUESTIONS : "contains"
+    QUESTIONS ||--|{ OPTIONS : "provides"
+    ATTEMPTS ||--o{ ATTEMPT_RESPONSES : "snapshots"

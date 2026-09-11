@@ -1,0 +1,43 @@
+flowchart TD
+    %% Presentation Tier
+    subgraph PresentationTier["1. Presentation Tier (Client)"]
+        UI_Student["Student Web UI\n• Quiz Taking Interface\n• Real-Time Timer\n• Result & Explanation View"]
+        UI_Instructor["Instructor Web UI\n• Quiz Authoring Forms\n• Question & Key Editor\n• Performance Analytics"]
+    end
+
+    %% Application Tier
+    subgraph ApplicationTier["2. Application Tier (Business Logic & Services)"]
+        API["API Layer / Controller\n• REST Endpoints\n• JWT Auth Validation\n• Request Sanitization"]
+
+        subgraph BusinessServices["Domain Services (Core Logic)"]
+            AuthService["Auth Service\n• Role Verification\n• Password Hashing"]
+            QuizService["Quiz Service\n• Catalog Filtering\n• Question Delivery (Without Keys)"]
+            GradingService["Scoring Engine\n• Answer Key Matching\n• Pass/Fail Calculation"]
+            HistoryService["Attempt Tracker\n• Score History\n• Time & Distractor Metrics"]
+        end
+
+        subgraph DataAccessLayer["Data Access Layer (Repository / ORM)"]
+        DAL["Repositories & Data Mappers\n• User Repository\n• Quiz & Question Repository\n• Attempt Log Repository"]
+        end
+    end
+
+    %% Data Tier
+    subgraph DataTier["3. Data Tier (Persistence Layer)"]
+        DB[("Relational Database\n(PostgreSQL)\n• Users & Roles\n• Quizzes & Questions\n• Options & Correct Keys\n• Attempts & Responses")]
+    end
+
+    %% Tier-to-Tier Communication
+    UI_Student -->|"HTTP / JSON\n(Submissions, State)"| API
+    UI_Instructor -->|"HTTP / JSON\n(CRUD Operations)"| API
+
+    API --> AuthService
+    API --> QuizService
+    API --> GradingService
+    API --> HistoryService
+
+    AuthService --> DAL
+    QuizService --> DAL
+    GradingService --> DAL
+    HistoryService --> DAL
+
+    DAL -->|"Parameterized SQL Queries / Transactions"| DB

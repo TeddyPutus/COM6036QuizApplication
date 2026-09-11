@@ -1,0 +1,59 @@
+graph TD
+    %% Presentation Tier / External Clients
+    subgraph Clients ["Client Layer"]
+        WEB["Web Client (SPA)"]
+    end
+
+    %% Ingress / Gateway
+    subgraph Gateway ["Routing Layer"]
+        APIGW["API Gateway. Global JWT Verification"]
+    end
+
+    %% Message Broker / Async Event Bus
+    subgraph EventBus ["Asynchronous Event Backbone"]
+        BROKER[("Message Broker<br/>(RabbitMQ / Kafka)<br/>Events: QuizCompleted, UserRegistered")]
+    end
+
+    %% Microservice 1: Identity
+    subgraph SvcAuth ["Auth & Identity Service"]
+        AUTH_SVC["Auth Service (Pod/Container)<br/>• Token Minting<br/>• User Credentials"]
+        AUTH_DB[("Auth DB<br/>(PostgreSQL)")]
+        AUTH_SVC -->|Private Connection| AUTH_DB
+    end
+
+    %% Microservice 2: Quiz Management
+    subgraph SvcQuiz ["Quiz Catalog Service"]
+        QUIZ_SVC["Quiz Catalog Service<br/>• Question Authoring<br/>• Catalog Browsing"]
+        QUIZ_DB[("Catalog DB<br/>(PostgreSQL)")]
+        QUIZ_SVC -->|Private Connection| QUIZ_DB
+    end
+
+    %% Microservice 3: Grading & Session
+    subgraph SvcGrading ["Grading & Test Engine Service"]
+        GRADE_SVC["Grading Engine<br/>• Session Timer<br/>• Answer Evaluation"]
+        GRADE_CACHE[("Session Store / Cache<br/>(Redis)")]
+        GRADE_SVC -->|State Storage| GRADE_CACHE
+    end
+
+    %% Microservice 4: Analytics & Progress
+    subgraph SvcAnalytics ["Analytics & History Service"]
+        ANALYTICS_SVC["Analytics Service<br/>• Score History<br/>• Distractor Breakdown"]
+        ANALYTICS_DB[("Analytics DB<br/>(ClickHouse / Postgres)")]
+        ANALYTICS_SVC -->|Private Connection| ANALYTICS_DB
+    end
+
+    %% Client Ingress Traffic
+    WEB -->|"HTTPS / JSON"| APIGW
+
+    %% Gateway Routing (Synchronous API calls)
+    APIGW -->|"HTTP/REST /auth"| AUTH_SVC
+    APIGW -->|"HTTP/REST /quizzes"| QUIZ_SVC
+    APIGW -->|"HTTP/REST /tests/submit"| GRADE_SVC
+    APIGW -->|"HTTP/REST /reports"| ANALYTICS_SVC
+
+    %% Inter-service Sync Call (Direct gRPC)
+    GRADE_SVC -.->|"gRPC (Fetch Answer Key)"| QUIZ_SVC
+
+    %% Event-Driven Async Publishing & Subscription
+    GRADE_SVC ==>|"Publish: TestGraded"| BROKER
+    BROKER ==>|"Subscribe: TestGraded"| ANALYTICS_SVC
