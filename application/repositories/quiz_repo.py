@@ -1,10 +1,8 @@
 # repositories/quiz_repo.py
 from dataclasses import dataclass, field
 from datetime import datetime
-import sqlite3
 from typing import List, Optional
-
-DB_FILE = "quiz_app.db"
+from database import get_db_connection
 
 
 @dataclass
@@ -40,177 +38,173 @@ class QuizEntity:
 
 
 class QuizRepository:
-    def __init__(self, db_path: str = DB_FILE) -> None:
-        self.db_path = db_path
+    def __init__(self) -> None:
         self._init_db()
 
-    def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON;")
-        return conn
-
     def _init_db(self) -> None:
-        with self._get_connection() as conn:
-            conn.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS quizzes (
-                    id TEXT PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    description TEXT,
-                    subject TEXT NOT NULL,
-                    time_limit_minutes INTEGER NOT NULL,
-                    passing_score_percentage REAL NOT NULL,
-                    is_published INTEGER NOT NULL DEFAULT 1,
-                    is_deleted INTEGER NOT NULL DEFAULT 0,
-                    created_at TEXT NOT NULL
-                );
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS quizzes (
+                        id TEXT PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        description TEXT,
+                        subject TEXT NOT NULL,
+                        time_limit_minutes INTEGER NOT NULL,
+                        passing_score_percentage DOUBLE PRECISION NOT NULL,
+                        is_published BOOLEAN NOT NULL DEFAULT TRUE,
+                        is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+                        created_at TIMESTAMPTZ NOT NULL
+                    );
 
-                CREATE TABLE IF NOT EXISTS questions (
-                    id TEXT PRIMARY KEY,
-                    quiz_id TEXT NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
-                    prompt TEXT NOT NULL,
-                    points INTEGER NOT NULL DEFAULT 1,
-                    explanation TEXT
-                );
+                    CREATE TABLE IF NOT EXISTS questions (
+                        id TEXT PRIMARY KEY,
+                        quiz_id TEXT NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+                        prompt TEXT NOT NULL,
+                        points INTEGER NOT NULL DEFAULT 1,
+                        explanation TEXT
+                    );
 
-                CREATE TABLE IF NOT EXISTS options (
-                    id TEXT PRIMARY KEY,
-                    question_id TEXT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
-                    text TEXT NOT NULL,
-                    is_correct INTEGER NOT NULL
-                );
+                    CREATE TABLE IF NOT EXISTS options (
+                        id TEXT PRIMARY KEY,
+                        question_id TEXT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+                        text TEXT NOT NULL,
+                        is_correct BOOLEAN NOT NULL
+                    );
 
-                CREATE INDEX IF NOT EXISTS idx_quizzes_subject ON quizzes(subject);
-                CREATE INDEX IF NOT EXISTS idx_questions_quiz ON questions(quiz_id);
-                CREATE INDEX IF NOT EXISTS idx_options_question ON options(question_id);
-                """
-            )
+                    CREATE INDEX IF NOT EXISTS idx_quizzes_subject ON quizzes(subject);
+                    CREATE INDEX IF NOT EXISTS idx_questions_quiz ON questions(quiz_id);
+                    CREATE INDEX IF NOT EXISTS idx_options_question ON options(question_id);
+                    """
+                )
 
     def list_catalog(
         self, subject: Optional[str] = None, limit: int = 20, offset: int = 0
     ) -> List[tuple[QuizEntity, int]]:
-        """Returns active quizzes with question counts."""
         query = """
             SELECT q.*, COUNT(qu.id) as question_count
             FROM quizzes q
             LEFT JOIN questions qu ON q.id = qu.quiz_id
-            WHERE q.is_deleted = 0 AND q.is_published = 1
+            WHERE q.is_deleted = FALSE AND q.is_published = TRUE
         """
         params: list = []
 
         if subject:
-            query += " AND LOWER(q.subject) = LOWER(?)"
+            query += " AND LOWER(q.subject) = LOWER(%s)"
             params.append(subject)
 
-        query += " GROUP BY q.id ORDER BY q.created_at DESC LIMIT ? OFFSET ?"
+        query += " GROUP BY q.id ORDER BY q.created_at DESC LIMIT %s OFFSET %s"
         params.extend([limit, offset])
 
-        with self._get_connection() as conn:
-            rows = conn.execute(query, params).fetchall()
-            results = []
-            for r in rows:
-                entity = QuizEntity(
-                    id=r["id"],
-                    title=r["title"],
-                    description=r["description"],
-                    subject=r["subject"],
-                    time_limit_minutes=r["time_limit_minutes"],
-                    passing_score_percentage=r["passing_score_percentage"],
-                    is_published=bool(r["is_published"]),
-                    is_deleted=bool(r["is_deleted"]),
-                    created_at=datetime.fromisoformat(r["created_at"]),
-                )
-                results.append((entity, r["question_count"]))
-            return results
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, params)
+                rows = cur.fetchall()
+                results = []
+                for r in rows:
+                    entity = QuizEntity(
+                        id=r["id"],
+                        title=r["title"],
+                        description=r["description"],
+                        subject=r["subject"],
+                        time_limit_minutes=r["time_limit_minutes"],
+                        passing_score_percentage=r["passing_score_percentage"],
+                        is_published=r["is_published"],
+                        is_deleted=r["is_deleted"],
+                        created_at=r["created_at"],
+                    )
+                    results.append((entity, r["question_count"]))
+                return results
 
     def get_by_id(self, quiz_id: str) -> Optional[QuizEntity]:
-        """Fetches full quiz entity tree with nested questions and options."""
-        with self._get_connection() as conn:
-            quiz_row = conn.execute(
-                "SELECT * FROM quizzes WHERE id = ? AND is_deleted = 0", (quiz_id,)
-            ).fetchone()
-            if not quiz_row:
-                return None
-
-            q_rows = conn.execute(
-                "SELECT * FROM questions WHERE quiz_id = ?", (quiz_id,)
-            ).fetchall()
-
-            questions: List[QuestionEntity] = []
-            for qr in q_rows:
-                opt_rows = conn.execute(
-                    "SELECT * FROM options WHERE question_id = ?", (qr["id"],)
-                ).fetchall()
-                options = [
-                    OptionEntity(
-                        id=opr["id"],
-                        question_id=opr["question_id"],
-                        text=opr["text"],
-                        is_correct=bool(opr["is_correct"]),
-                    )
-                    for opr in opt_rows
-                ]
-                questions.append(
-                    QuestionEntity(
-                        id=qr["id"],
-                        quiz_id=qr["quiz_id"],
-                        prompt=qr["prompt"],
-                        points=qr["points"],
-                        explanation=qr["explanation"],
-                        options=options,
-                    )
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT * FROM quizzes WHERE id = %s AND is_deleted = FALSE",
+                    (quiz_id,),
                 )
+                quiz_row = cur.fetchone()
+                if not quiz_row:
+                    return None
 
-            return QuizEntity(
-                id=quiz_row["id"],
-                title=quiz_row["title"],
-                description=quiz_row["description"],
-                subject=quiz_row["subject"],
-                time_limit_minutes=quiz_row["time_limit_minutes"],
-                passing_score_percentage=quiz_row["passing_score_percentage"],
-                is_published=bool(quiz_row["is_published"]),
-                is_deleted=bool(quiz_row["is_deleted"]),
-                created_at=datetime.fromisoformat(quiz_row["created_at"]),
-                questions=questions,
-            )
+                cur.execute("SELECT * FROM questions WHERE quiz_id = %s", (quiz_id,))
+                q_rows = cur.fetchall()
+
+                questions: List[QuestionEntity] = []
+                for qr in q_rows:
+                    cur.execute("SELECT * FROM options WHERE question_id = %s", (qr["id"],))
+                    opt_rows = cur.fetchall()
+                    options = [
+                        OptionEntity(
+                            id=opr["id"],
+                            question_id=opr["question_id"],
+                            text=opr["text"],
+                            is_correct=opr["is_correct"],
+                        )
+                        for opr in opt_rows
+                    ]
+                    questions.append(
+                        QuestionEntity(
+                            id=qr["id"],
+                            quiz_id=qr["quiz_id"],
+                            prompt=qr["prompt"],
+                            points=qr["points"],
+                            explanation=qr["explanation"],
+                            options=options,
+                        )
+                    )
+
+                return QuizEntity(
+                    id=quiz_row["id"],
+                    title=quiz_row["title"],
+                    description=quiz_row["description"],
+                    subject=quiz_row["subject"],
+                    time_limit_minutes=quiz_row["time_limit_minutes"],
+                    passing_score_percentage=quiz_row["passing_score_percentage"],
+                    is_published=quiz_row["is_published"],
+                    is_deleted=quiz_row["is_deleted"],
+                    created_at=quiz_row["created_at"],
+                    questions=questions,
+                )
 
     def create(self, quiz: QuizEntity) -> QuizEntity:
-        """Atomic insert of quiz, questions, and options."""
-        with self._get_connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO quizzes (id, title, description, subject, time_limit_minutes, passing_score_percentage, is_published, is_deleted, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    quiz.id,
-                    quiz.title,
-                    quiz.description,
-                    quiz.subject,
-                    quiz.time_limit_minutes,
-                    quiz.passing_score_percentage,
-                    int(quiz.is_published),
-                    int(quiz.is_deleted),
-                    quiz.created_at.isoformat(),
-                ),
-            )
-            for q in quiz.questions:
-                conn.execute(
-                    "INSERT INTO questions (id, quiz_id, prompt, points, explanation) VALUES (?, ?, ?, ?, ?)",
-                    (q.id, quiz.id, q.prompt, q.points, q.explanation),
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO quizzes (id, title, description, subject, time_limit_minutes, passing_score_percentage, is_published, is_deleted, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        quiz.id,
+                        quiz.title,
+                        quiz.description,
+                        quiz.subject,
+                        quiz.time_limit_minutes,
+                        quiz.passing_score_percentage,
+                        quiz.is_published,
+                        quiz.is_deleted,
+                        quiz.created_at,
+                    ),
                 )
-                for opt in q.options:
-                    conn.execute(
-                        "INSERT INTO options (id, question_id, text, is_correct) VALUES (?, ?, ?, ?)",
-                        (opt.id, q.id, opt.text, int(opt.is_correct)),
+                for q in quiz.questions:
+                    cur.execute(
+                        "INSERT INTO questions (id, quiz_id, prompt, points, explanation) VALUES (%s, %s, %s, %s, %s)",
+                        (q.id, quiz.id, q.prompt, q.points, q.explanation),
                     )
+                    for opt in q.options:
+                        cur.execute(
+                            "INSERT INTO options (id, question_id, text, is_correct) VALUES (%s, %s, %s, %s)",
+                            (opt.id, q.id, opt.text, opt.is_correct),
+                        )
         return quiz
 
     def soft_delete(self, quiz_id: str) -> bool:
-        with self._get_connection() as conn:
-            cursor = conn.execute(
-                "UPDATE quizzes SET is_deleted = 1 WHERE id = ? AND is_deleted = 0",
-                (quiz_id,),
-            )
-            return cursor.rowcount > 0
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE quizzes SET is_deleted = TRUE WHERE id = %s AND is_deleted = FALSE",
+                    (quiz_id,),
+                )
+                return cur.rowcount > 0

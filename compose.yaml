@@ -5,10 +5,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    volumes:
-      - sqlite_data:/app
     environment:
       - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/quiz_app
+    depends_on:
+      - db
 
   frontend:
     build:
@@ -19,5 +20,23 @@ services:
     depends_on:
       - backend
 
+  database:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=quiz_app
+    volumes:
+      - data:/var/lib/postgresql/data
+
+  adminer: # To view database. This is for debugging/presentation.
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
 volumes:
-  sqlite_data:
+  data:
