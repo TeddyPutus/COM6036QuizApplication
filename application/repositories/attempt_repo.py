@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, List, Optional
-from database import get_db_connection
+from repositories.database import get_db_connection
 
 
 @dataclass
@@ -211,3 +211,28 @@ class AttemptRepository:
             earned_points=row["earned_points"],
             passed=row["passed"],
         )
+
+    def list_completed_attempts_by_quiz(self, quiz_id: str) -> List[dict[str, Any]]:
+        """Fetches all completed attempts for a target quiz with student names and emails."""
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT 
+                        a.id,
+                        a.user_id,
+                        u.full_name AS user_name,
+                        u.email AS user_email,
+                        a.score,
+                        a.total_points,
+                        a.earned_points,
+                        a.passed,
+                        a.completed_at
+                    FROM attempts a
+                    JOIN users u ON a.user_id = u.id
+                    WHERE a.quiz_id = %s AND a.completed_at IS NOT NULL
+                    ORDER BY a.completed_at DESC
+                    """,
+                    (quiz_id,),
+                )
+                return cur.fetchall()

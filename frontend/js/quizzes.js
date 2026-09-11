@@ -25,12 +25,19 @@ async function loadCatalog() {
         <div class="border-t pt-3 flex items-center justify-between">
           <span class="text-xs font-semibold text-slate-500">${q.total_questions} Questions</span>
           <div class="space-x-2">
-            ${
-              currentUser.role === 'student'
-                ? `<button onclick="startQuiz('${q.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded transition">Start Test</button>`
-                : `<button onclick="deleteQuiz('${q.id}')" class="text-rose-600 hover:text-rose-800 text-xs font-bold px-2 py-1">Delete</button>`
-            }
-          </div>
+                ${
+                  currentUser.role === 'student'
+                    ? `<button onclick="startQuiz('${q.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded transition">Start Test</button>`
+                    : `
+                      <button onclick="viewQuizAnalytics('${q.id}', '${q.title.replace(/'/g, "\\'")}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-2.5 py-1.5 rounded transition border border-indigo-200">
+                        Analytics
+                      </button>
+                      <button onclick="deleteQuiz('${q.id}')" class="text-rose-600 hover:text-rose-800 text-xs font-bold px-2 py-1">
+                        Delete
+                      </button>
+                    `
+                }
+              </div>
         </div>
       </div>
     `

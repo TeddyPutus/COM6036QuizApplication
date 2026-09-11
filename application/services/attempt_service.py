@@ -1,10 +1,19 @@
-# services/attempt_service.py
+# services/history_service.py
+from datetime import datetime
 from typing import List, Optional
 from fastapi import Depends, HTTPException, status
 from pydantic import BaseModel
 
 from repositories.attempt_repo import AttemptRepository
-from schemas import AttemptResultResponse, QuestionResultFeedback
+from repositories.quiz_repo import QuizRepository
+from schemas import (
+    AttemptResultResponse,
+    InstructorAttemptResponse,
+    QuestionResultFeedback,
+    QuizAnalyticsSummary,
+    UserResponse,
+    UserRole,
+)
 
 
 class StudentAnalyticsSummary(BaseModel):
@@ -17,11 +26,15 @@ class StudentAnalyticsSummary(BaseModel):
 class AttemptService:
     """Domain service responsible for progress tracking, attempt reviews, and analytics."""
 
-    def __init__(self, attempt_repo: AttemptRepository = Depends(AttemptRepository)) -> None:
+    def __init__(
+        self,
+        attempt_repo: AttemptRepository = Depends(AttemptRepository),
+        quiz_repo: QuizRepository = Depends(QuizRepository),
+    ) -> None:
         self.attempt_repo = attempt_repo
+        self.quiz_repo = quiz_repo
 
     def get_user_history(self, user_id: str) -> List[AttemptResultResponse]:
-        """Fetches lightweight summaries of all completed quizzes for a student."""
         attempts = self.attempt_repo.list_completed_attempts_by_user(user_id)
         return [
             AttemptResultResponse(
@@ -32,13 +45,14 @@ class AttemptService:
                 earned_points=a.earned_points,
                 passed=a.passed,
                 completed_at=a.completed_at,
-                breakdown=None,  # Breakdown omitted in list view to reduce network payload
+                breakdown=None,
             )
             for a in attempts
         ]
 
-    def get_attempt_detail(self, user_id: str, attempt_id: str) -> AttemptResultResponse:
-        """Retrieves an in-depth audit of a specific attempt with per-question rationale."""
+    def get_attempt_detail(
+        self, current_user: UserResponse, attempt_id: str
+    ) -> AttemptResultResponse:
         attempt = self.attempt_repo.get_attempt_by_id(attempt_id)
         if not attempt:
             raise HTTPException(
@@ -46,10 +60,12 @@ class AttemptService:
                 detail="Attempt record not found.",
             )
 
-        if attempt.user_id != user_id:
+        # Allow access if the user is an Instructor/Admin OR the student who took it
+        is_staff = current_user.role in [UserRole.INSTRUCTOR, UserRole.ADMIN]
+        if not is_staff and attempt.user_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied: You cannot view another student's test history.",
+                detail="Access denied: You cannot view this attempt.",
             )
 
         if attempt.completed_at is None:
@@ -83,7 +99,6 @@ class AttemptService:
         )
 
     def get_student_summary_metrics(self, user_id: str) -> StudentAnalyticsSummary:
-        """Innovation metric: aggregates long-term diagnostic learning progress."""
         attempts = self.attempt_repo.list_completed_attempts_by_user(user_id)
         if not attempts:
             return StudentAnalyticsSummary(
@@ -99,4 +114,70 @@ class AttemptService:
             passed_attempts=passed,
             average_score=round(avg_score, 2),
             pass_rate_percentage=round((passed / total) * 100.0, 2),
+        )
+
+    def get_quiz_attempts_for_instructor(
+        self, quiz_id: str
+    ) -> List[InstructorAttemptResponse]:
+        """Returns every completed student attempt for a given quiz."""
+        quiz = self.quiz_repo.get_by_id(quiz_id)
+        if not quiz:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Quiz not found.",
+            )
+
+        rows = self.attempt_repo.list_completed_attempts_by_quiz(quiz_id)
+        return [
+            InstructorAttemptResponse(
+                attempt_id=r["id"],
+                user_id=r["user_id"],
+                user_name=r["user_name"],
+                user_email=r["user_email"],
+                score=r["score"],
+                total_points=r["total_points"],
+                earned_points=r["earned_points"],
+                passed=bool(r["passed"]),
+                completed_at=r["completed_at"],
+            )
+            for r in rows
+        ]
+
+    def get_quiz_metrics_for_instructor(self, quiz_id: str) -> QuizAnalyticsSummary:
+        """Calculates aggregate metrics (average, pass rate, high, low) for an instructor."""
+        quiz = self.quiz_repo.get_by_id(quiz_id)
+        if not quiz:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Quiz not found.",
+            )
+
+        rows = self.attempt_repo.list_completed_attempts_by_quiz(quiz_id)
+        total = len(rows)
+
+        if total == 0:
+            return QuizAnalyticsSummary(
+                quiz_id=quiz.id,
+                quiz_title=quiz.title,
+                total_attempts=0,
+                passed_attempts=0,
+                pass_rate_percentage=0.0,
+                average_score=0.0,
+                highest_score=0.0,
+                lowest_score=0.0,
+            )
+
+        scores = [float(r["score"]) for r in rows if r["score"] is not None]
+        passed_count = sum(1 for r in rows if r["passed"])
+        avg_score = sum(scores) / len(scores) if scores else 0.0
+
+        return QuizAnalyticsSummary(
+            quiz_id=quiz.id,
+            quiz_title=quiz.title,
+            total_attempts=total,
+            passed_attempts=passed_count,
+            pass_rate_percentage=round((passed_count / total) * 100.0, 2),
+            average_score=round(avg_score, 2),
+            highest_score=round(max(scores), 2) if scores else 0.0,
+            lowest_score=round(min(scores), 2) if scores else 0.0,
         )

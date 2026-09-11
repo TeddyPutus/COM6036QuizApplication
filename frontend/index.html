@@ -199,6 +199,42 @@
       </div>
     </div>
 
+    <!-- MODAL: INSTRUCTOR QUIZ ANALYTICS & ATTEMPTS -->
+    <div id="modalInstructorAnalytics" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto space-y-6">
+        <div class="flex justify-between items-center border-b pb-3">
+          <div>
+            <h3 class="text-xl font-bold" id="analyticsModalTitle">Quiz Performance</h3>
+            <p class="text-xs text-slate-500">Aggregate statistics and student attempt logs</p>
+          </div>
+          <button onclick="closeQuizAnalyticsModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+        </div>
+
+        <!-- Metric KPI Cards -->
+        <div id="instructorMetricsCards" class="grid grid-cols-2 sm:grid-cols-5 gap-3"></div>
+
+        <!-- Attempts Table -->
+        <div class="space-y-3">
+          <h4 class="text-sm font-bold uppercase tracking-wider text-slate-500">Submitted Attempts</h4>
+          <div class="overflow-x-auto border border-slate-200 rounded-lg">
+            <table class="min-w-full divide-y divide-slate-200 text-xs text-left">
+              <thead class="bg-slate-50 font-bold text-slate-600">
+                <tr>
+                  <th class="px-4 py-3">Student</th>
+                  <th class="px-4 py-3">Score</th>
+                  <th class="px-4 py-3">Points</th>
+                  <th class="px-4 py-3">Status</th>
+                  <th class="px-4 py-3">Completed</th>
+                  <th class="px-4 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="instructorAttemptsTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Scripts: Loaded in dependency order -->

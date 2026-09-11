@@ -144,3 +144,24 @@ class AttemptResultResponse(BaseModel):
     passed: bool
     completed_at: datetime
     breakdown: Optional[List[QuestionResultFeedback]] = None
+
+class InstructorAttemptResponse(BaseModel):
+    attempt_id: str
+    user_id: str
+    user_name: str
+    user_email: str
+    score: float
+    total_points: int
+    earned_points: int
+    passed: bool
+    completed_at: datetime
+
+class QuizAnalyticsSummary(BaseModel):
+    quiz_id: str
+    quiz_title: str
+    total_attempts: int
+    passed_attempts: int
+    pass_rate_percentage: float
+    average_score: float
+    highest_score: float
+    lowest_score: float

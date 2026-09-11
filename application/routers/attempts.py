@@ -2,12 +2,14 @@
 from typing import Annotated, List
 from fastapi import APIRouter, Depends, status
 
-from dependencies import get_current_user
+from dependencies import get_current_user, require_instructor
 from schemas import (
     AttemptResultResponse,
     AttemptStartRequest,
     AttemptStartResponse,
     AttemptSubmitRequest,
+    InstructorAttemptResponse,
+    QuizAnalyticsSummary,
     UserResponse,
 )
 from services.attempt_service import AttemptService, StudentAnalyticsSummary
@@ -19,7 +21,6 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
-# --- Write Operations (Delegated to AttemptService) ---
 
 @router.post("/start", response_model=AttemptStartResponse, status_code=status.HTTP_201_CREATED)
 async def start_attempt(
@@ -42,31 +43,50 @@ async def submit_attempt(
     )
 
 
-# --- Read & Review Operations (Delegated to HistoryService) ---
-
 @router.get("/history", response_model=List[AttemptResultResponse])
 async def get_attempt_history(
     current_user: Annotated[UserResponse, Depends(get_current_user)],
-    history_service: Annotated[AttemptService, Depends(AttemptService)],
+    attempt_service: Annotated[AttemptService, Depends(AttemptService)],
 ):
-    """Retrieve all past quiz attempts for the logged-in student."""
-    return history_service.get_user_history(user_id=current_user.id)
+    return attempt_service.get_user_history(user_id=current_user.id)
 
 
 @router.get("/metrics", response_model=StudentAnalyticsSummary)
 async def get_student_metrics(
     current_user: Annotated[UserResponse, Depends(get_current_user)],
-    history_service: Annotated[AttemptService, Depends(AttemptService)],
+    attempt_service: Annotated[AttemptService, Depends(AttemptService)],
 ):
-    """Retrieve aggregate performance indicators (pass rate, average score)."""
-    return history_service.get_student_summary_metrics(user_id=current_user.id)
+    return attempt_service.get_student_summary_metrics(user_id=current_user.id)
 
+
+# --- Instructor-Only Endpoints ---
+
+@router.get("/quiz/{quiz_id}", response_model=List[InstructorAttemptResponse])
+async def get_quiz_attempts_for_instructor(
+    quiz_id: str,
+    instructor: Annotated[UserResponse, Depends(require_instructor)],
+    attempt_service: Annotated[AttemptService, Depends(AttemptService)],
+):
+    """Instructor-only: View list of completed attempts and student scores for a quiz."""
+    return attempt_service.get_quiz_attempts_for_instructor(quiz_id=quiz_id)
+
+
+@router.get("/quiz/{quiz_id}/metrics", response_model=QuizAnalyticsSummary)
+async def get_quiz_metrics_for_instructor(
+    quiz_id: str,
+    instructor: Annotated[UserResponse, Depends(require_instructor)],
+    attempt_service: Annotated[AttemptService, Depends(AttemptService)],
+):
+    """Instructor-only: Retrieve aggregate statistics (average, pass rate, score extremes)."""
+    return attempt_service.get_quiz_metrics_for_instructor(quiz_id=quiz_id)
+
+
+# --- Dynamic Attempt Detail Route ---
 
 @router.get("/{attempt_id}", response_model=AttemptResultResponse)
 async def get_attempt_result(
     attempt_id: str,
     current_user: Annotated[UserResponse, Depends(get_current_user)],
-    history_service: Annotated[AttemptService, Depends(AttemptService)],
+    attempt_service: Annotated[AttemptService, Depends(AttemptService)],
 ):
-    """Retrieve complete answer-by-answer breakdown for a finished attempt."""
-    return history_service.get_attempt_detail(user_id=current_user.id, attempt_id=attempt_id)
+    return attempt_service.get_attempt_detail(current_user=current_user, attempt_id=attempt_id)

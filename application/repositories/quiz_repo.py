@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional
-from database import get_db_connection
+from repositories.database import get_db_connection
 
 
 @dataclass
