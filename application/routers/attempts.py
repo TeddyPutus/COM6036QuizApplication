@@ -10,8 +10,8 @@ from schemas import (
     AttemptSubmitRequest,
     UserResponse,
 )
-from services.attempt_service import AttemptService
 from services.attempt_service import AttemptService, StudentAnalyticsSummary
+from services.scoring_service import ScoringService
 
 router = APIRouter(
     prefix="/attempts",
@@ -25,7 +25,7 @@ router = APIRouter(
 async def start_attempt(
     payload: AttemptStartRequest,
     current_user: Annotated[UserResponse, Depends(get_current_user)],
-    service: Annotated[AttemptService, Depends(AttemptService)],
+    service: Annotated[ScoringService, Depends(ScoringService)],
 ):
     return service.start_attempt(user_id=current_user.id, quiz_id=payload.quiz_id)
 
@@ -35,7 +35,7 @@ async def submit_attempt(
     attempt_id: str,
     payload: AttemptSubmitRequest,
     current_user: Annotated[UserResponse, Depends(get_current_user)],
-    service: Annotated[AttemptService, Depends(AttemptService)],
+    service: Annotated[ScoringService, Depends(ScoringService)],
 ):
     return service.evaluate_submission(
         user_id=current_user.id, attempt_id=attempt_id, answers=payload.answers

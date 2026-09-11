@@ -14,7 +14,7 @@ app = FastAPI(
 # CORS configuration allowing Presentation Tier (SPA) ingress
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React / Vue SPA URL
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
