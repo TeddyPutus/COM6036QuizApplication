@@ -12,7 +12,7 @@ from services.auth_service import AuthService
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(
+def register(
     payload: UserRegisterRequest,
     service: AuthService = Depends(AuthService),
 ):
@@ -21,7 +21,7 @@ async def register(
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(
+def login(
     payload: UserLoginRequest,
     service: AuthService = Depends(AuthService),
 ):
@@ -30,7 +30,7 @@ async def login(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_profile(
+def get_current_user_profile(
     current_user: UserResponse = Depends(get_current_user),
 ):
     """Return profile for the currently authenticated session."""
