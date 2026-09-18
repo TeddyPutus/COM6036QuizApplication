@@ -179,3 +179,25 @@ def step_impl(context):
     data = context.response.json()
     assert data["score"] == 100.0, f"Expected 100.0, got {data.get('score')}"
     assert data["passed"] is True
+
+# --- Authorization Steps ---
+
+@given('I have no access token')
+def step_impl(context):
+    context.session.headers.pop('Authorization', None)
+
+@when('I attempt to create a quiz')
+def step_impl(context):
+    context.execute_steps('When I create a quiz about "Protected Quiz" with 1 question')
+
+@when('I attempt to view instructor metrics for a dummy quiz')
+def step_impl(context):
+    context.response = context.session.get(f"{context.base_url}/attempts/quiz/dummy_id/metrics")
+
+@when('I attempt to view instructor metrics for the created quiz')
+def step_impl(context):
+    context.response = context.session.get(f"{context.base_url}/attempts/quiz/{context.quiz_id}/metrics")
+
+@then('the error message should mention "{text}"')
+def step_impl(context, text):
+    assert text in context.response.text, f"Expected '{text}' in {context.response.text}"
