@@ -80,7 +80,11 @@ async function verifyAndLoadUser() {
     if (currentUser.role === 'instructor' || currentUser.role === 'admin') {
       document.getElementById('btnOpenCreator').classList.remove('hidden');
       document.getElementById("pastAttemptsBtn").classList.add('hidden');
+      document.getElementById('metricsPanel').classList.add('hidden');
     } else {
+      document.getElementById('btnOpenCreator').classList.add('hidden');
+      document.getElementById("pastAttemptsBtn").classList.remove('hidden');
+      document.getElementById('metricsPanel').classList.remove('hidden');
       loadStudentMetrics();
     }
     loadCatalog();

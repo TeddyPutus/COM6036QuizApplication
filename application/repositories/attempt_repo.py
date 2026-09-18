@@ -34,48 +34,56 @@ class AttemptEntity:
 
 
 class AttemptRepository:
+    _db_initialized = False
+
     def __init__(self) -> None:
-        self._init_db()
+        if not AttemptRepository._db_initialized:
+            self._init_db()
+            AttemptRepository._db_initialized = True
 
     def _init_db(self) -> None:
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS attempts (
-                        id TEXT PRIMARY KEY,
-                        user_id TEXT NOT NULL REFERENCES users(id),
-                        quiz_id TEXT NOT NULL REFERENCES quizzes(id),
-                        started_at TIMESTAMPTZ NOT NULL,
-                        expires_at TIMESTAMPTZ NOT NULL,
-                        completed_at TIMESTAMPTZ,
-                        score DOUBLE PRECISION,
-                        total_points INTEGER,
-                        earned_points INTEGER,
-                        passed BOOLEAN
-                    );
+        import psycopg
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS attempts (
+                            id TEXT PRIMARY KEY,
+                            user_id TEXT NOT NULL REFERENCES users(id),
+                            quiz_id TEXT NOT NULL REFERENCES quizzes(id),
+                            started_at TIMESTAMPTZ NOT NULL,
+                            expires_at TIMESTAMPTZ NOT NULL,
+                            completed_at TIMESTAMPTZ,
+                            score DOUBLE PRECISION,
+                            total_points INTEGER,
+                            earned_points INTEGER,
+                            passed BOOLEAN
+                        );
 
-                    CREATE TABLE IF NOT EXISTS attempt_responses (
-                        id TEXT PRIMARY KEY,
-                        attempt_id TEXT NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
-                        question_id TEXT NOT NULL,
-                        prompt TEXT NOT NULL,
-                        selected_option_id TEXT NOT NULL,
-                        correct_option_id TEXT NOT NULL,
-                        is_correct BOOLEAN NOT NULL,
-                        explanation TEXT,
-                        selected_option_text TEXT,
-                        correct_option_text TEXT
-                    );
-                    
-                    ALTER TABLE attempt_responses ADD COLUMN IF NOT EXISTS selected_option_text TEXT;
-                    ALTER TABLE attempt_responses ADD COLUMN IF NOT EXISTS correct_option_text TEXT;
+                        CREATE TABLE IF NOT EXISTS attempt_responses (
+                            id TEXT PRIMARY KEY,
+                            attempt_id TEXT NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
+                            question_id TEXT NOT NULL,
+                            prompt TEXT NOT NULL,
+                            selected_option_id TEXT NOT NULL,
+                            correct_option_id TEXT NOT NULL,
+                            is_correct BOOLEAN NOT NULL,
+                            explanation TEXT,
+                            selected_option_text TEXT,
+                            correct_option_text TEXT
+                        );
+                        
+                        ALTER TABLE attempt_responses ADD COLUMN IF NOT EXISTS selected_option_text TEXT;
+                        ALTER TABLE attempt_responses ADD COLUMN IF NOT EXISTS correct_option_text TEXT;
 
-                    CREATE INDEX IF NOT EXISTS idx_attempts_user ON attempts(user_id);
-                    CREATE INDEX IF NOT EXISTS idx_attempts_quiz ON attempts(quiz_id);
-                    CREATE INDEX IF NOT EXISTS idx_responses_attempt ON attempt_responses(attempt_id);
-                    """
-                )
+                        CREATE INDEX IF NOT EXISTS idx_attempts_user ON attempts(user_id);
+                        CREATE INDEX IF NOT EXISTS idx_attempts_quiz ON attempts(quiz_id);
+                        CREATE INDEX IF NOT EXISTS idx_responses_attempt ON attempt_responses(attempt_id);
+                        """
+                    )
+        except psycopg.errors.UniqueViolation:
+            pass
 
     def create_attempt(self, attempt: AttemptEntity) -> AttemptEntity:
         with get_db_connection() as conn:
