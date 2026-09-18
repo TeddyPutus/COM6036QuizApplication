@@ -79,6 +79,7 @@ async function verifyAndLoadUser() {
 
     if (currentUser.role === 'instructor' || currentUser.role === 'admin') {
       document.getElementById('btnOpenCreator').classList.remove('hidden');
+      document.getElementById("pastAttemptsBtn").classList.add('hidden');
     } else {
       loadStudentMetrics();
     }
