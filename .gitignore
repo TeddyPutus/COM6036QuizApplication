@@ -1,2 +1,6 @@
 .idea/
 *.db
+*.csv
+
+# Gatling build artifacts and reports
+gatling_tests/target/
