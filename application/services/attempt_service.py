@@ -83,6 +83,8 @@ class AttemptService:
                 correct_option_id=r.correct_option_id,
                 is_correct=r.is_correct,
                 explanation=r.explanation,
+                selected_option_text=r.selected_option_text,
+                correct_option_text=r.correct_option_text,
             )
             for r in responses
         ]

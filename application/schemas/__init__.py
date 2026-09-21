@@ -130,7 +130,9 @@ class QuestionResultFeedback(BaseModel):
     question_id: str
     prompt: str
     selected_option_id: str
+    selected_option_text: Optional[str] = None
     correct_option_id: str
+    correct_option_text: Optional[str] = None
     is_correct: bool
     explanation: Optional[str]
 

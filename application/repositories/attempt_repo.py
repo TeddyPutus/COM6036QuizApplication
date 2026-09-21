@@ -15,6 +15,8 @@ class ResponseRecordEntity:
     correct_option_id: str
     is_correct: bool
     explanation: Optional[str]
+    selected_option_text: Optional[str] = None
+    correct_option_text: Optional[str] = None
 
 
 @dataclass
@@ -61,8 +63,13 @@ class AttemptRepository:
                         selected_option_id TEXT NOT NULL,
                         correct_option_id TEXT NOT NULL,
                         is_correct BOOLEAN NOT NULL,
-                        explanation TEXT
+                        explanation TEXT,
+                        selected_option_text TEXT,
+                        correct_option_text TEXT
                     );
+                    
+                    ALTER TABLE attempt_responses ADD COLUMN IF NOT EXISTS selected_option_text TEXT;
+                    ALTER TABLE attempt_responses ADD COLUMN IF NOT EXISTS correct_option_text TEXT;
 
                     CREATE INDEX IF NOT EXISTS idx_attempts_user ON attempts(user_id);
                     CREATE INDEX IF NOT EXISTS idx_attempts_quiz ON attempts(quiz_id);
@@ -160,8 +167,8 @@ class AttemptRepository:
                     cur.execute(
                         """
                         INSERT INTO attempt_responses 
-                        (id, attempt_id, question_id, prompt, selected_option_id, correct_option_id, is_correct, explanation)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        (id, attempt_id, question_id, prompt, selected_option_id, correct_option_id, is_correct, explanation, selected_option_text, correct_option_text)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """,
                         (
                             resp.id,
@@ -172,6 +179,8 @@ class AttemptRepository:
                             resp.correct_option_id,
                             resp.is_correct,
                             resp.explanation,
+                            resp.selected_option_text,
+                            resp.correct_option_text,
                         ),
                     )
 
@@ -193,6 +202,8 @@ class AttemptRepository:
                         correct_option_id=r["correct_option_id"],
                         is_correct=r["is_correct"],
                         explanation=r["explanation"],
+                        selected_option_text=r.get("selected_option_text"),
+                        correct_option_text=r.get("correct_option_text"),
                     )
                     for r in rows
                 ]

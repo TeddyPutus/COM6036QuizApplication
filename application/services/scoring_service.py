@@ -98,8 +98,12 @@ class ScoringService:
         for question in quiz.questions:
             correct_opt = next((o for o in question.options if o.is_correct), None)
             correct_opt_id = correct_opt.id if correct_opt else ""
+            correct_opt_text = correct_opt.text if correct_opt else ""
 
             selected_opt_id = student_answers.get(question.id, "")
+            selected_opt = next((o for o in question.options if o.id == selected_opt_id), None)
+            selected_opt_text = selected_opt.text if selected_opt else ""
+
             is_correct = bool(selected_opt_id and selected_opt_id == correct_opt_id)
 
             if is_correct:
@@ -114,6 +118,8 @@ class ScoringService:
                 correct_option_id=correct_opt_id,
                 is_correct=is_correct,
                 explanation=question.explanation,
+                selected_option_text=selected_opt_text,
+                correct_option_text=correct_opt_text,
             )
             response_records.append(response_record)
 
@@ -125,6 +131,8 @@ class ScoringService:
                     correct_option_id=correct_opt_id,
                     is_correct=is_correct,
                     explanation=question.explanation,
+                    selected_option_text=selected_opt_text,
+                    correct_option_text=correct_opt_text,
                 )
             )
 

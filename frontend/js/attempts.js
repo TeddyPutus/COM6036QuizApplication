@@ -108,8 +108,8 @@ function displayResult(result) {
     } space-y-2">
       <p class="text-sm font-bold">${item.prompt}</p>
       <div class="text-xs space-y-1">
-        <p><span class="font-semibold">Your Pick:</span> ${item.selected_option_id}</p>
-        ${!item.is_correct ? `<p class="text-emerald-700 font-semibold"><span class="font-semibold">Correct Option ID:</span> ${item.correct_option_id}</p>` : ''}
+        <p><span class="font-semibold">Your Pick:</span> ${item.selected_option_text || item.selected_option_id || '<span class="text-slate-400 italic">No answer provided</span>'}</p>
+        ${!item.is_correct ? `<p class="text-emerald-700 font-semibold"><span class="font-semibold">Correct Answer:</span> ${item.correct_option_text || item.correct_option_id}</p>` : ''}
         ${item.explanation ? `<p class="text-slate-500 italic mt-1">Note: ${item.explanation}</p>` : ''}
       </div>
     </div>
