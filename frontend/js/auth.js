@@ -92,6 +92,7 @@ async function verifyAndLoadUser() {
 function handleLogout() {
   localStorage.removeItem('access_token');
   currentUser = null;
+  if (typeof timerInterval !== 'undefined') clearInterval(timerInterval);
   renderAuthNav();
   document.getElementById('viewAuth').classList.remove('hidden');
   document.getElementById('viewDashboard').classList.add('hidden');

@@ -86,6 +86,7 @@ async function handleAttemptSubmit(e) {
 }
 
 function displayResult(result) {
+  document.getElementById('viewDashboard').classList.add('hidden');
   document.getElementById('viewTestRunner').classList.add('hidden');
   document.getElementById('viewResults').classList.remove('hidden');
 
