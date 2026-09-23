@@ -13,6 +13,7 @@ class MockOption:
     def __init__(self, id, is_correct):
         self.id = id
         self.is_correct = is_correct
+        self.text = "Option Text"
 
 class MockQuestion:
     def __init__(self, id, points, options):
