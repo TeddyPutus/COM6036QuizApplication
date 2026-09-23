@@ -2,7 +2,7 @@
 from typing import Annotated, List
 from fastapi import APIRouter, Depends, status
 
-from dependencies import get_current_user, require_instructor
+from dependencies import get_current_user, require_instructor, require_student
 from schemas import (
     AttemptResultResponse,
     AttemptStartRequest,
@@ -25,7 +25,7 @@ router = APIRouter(
 @router.post("/start", response_model=AttemptStartResponse, status_code=status.HTTP_201_CREATED)
 async def start_attempt(
     payload: AttemptStartRequest,
-    current_user: Annotated[UserResponse, Depends(get_current_user)],
+    current_user: Annotated[UserResponse, Depends(require_student)],
     service: Annotated[ScoringService, Depends(ScoringService)],
 ):
     return service.start_attempt(user_id=current_user.id, quiz_id=payload.quiz_id)
@@ -35,7 +35,7 @@ async def start_attempt(
 async def submit_attempt(
     attempt_id: str,
     payload: AttemptSubmitRequest,
-    current_user: Annotated[UserResponse, Depends(get_current_user)],
+    current_user: Annotated[UserResponse, Depends(require_student)],
     service: Annotated[ScoringService, Depends(ScoringService)],
 ):
     return service.evaluate_submission(
@@ -45,7 +45,7 @@ async def submit_attempt(
 
 @router.get("/history", response_model=List[AttemptResultResponse])
 async def get_attempt_history(
-    current_user: Annotated[UserResponse, Depends(get_current_user)],
+    current_user: Annotated[UserResponse, Depends(require_student)],
     attempt_service: Annotated[AttemptService, Depends(AttemptService)],
 ):
     return attempt_service.get_user_history(user_id=current_user.id)
@@ -53,7 +53,7 @@ async def get_attempt_history(
 
 @router.get("/metrics", response_model=StudentAnalyticsSummary)
 async def get_student_metrics(
-    current_user: Annotated[UserResponse, Depends(get_current_user)],
+    current_user: Annotated[UserResponse, Depends(require_student)],
     attempt_service: Annotated[AttemptService, Depends(AttemptService)],
 ):
     return attempt_service.get_student_summary_metrics(user_id=current_user.id)

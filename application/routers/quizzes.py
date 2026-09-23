@@ -1,7 +1,7 @@
 from typing import Annotated, List, Optional
 from fastapi import APIRouter, Depends, Query, status
 
-from dependencies import get_current_user, require_instructor
+from dependencies import get_current_user, require_instructor, require_student
 from schemas import (
     QuizCreateRequest,
     QuizSummaryResponse,
@@ -28,7 +28,7 @@ async def list_quizzes(
 @router.get("/{quiz_id}/take", response_model=QuizTakeResponse)
 async def get_quiz_for_taking(
     quiz_id: str,
-    _: Annotated[UserResponse, Depends(get_current_user)],
+    _: Annotated[UserResponse, Depends(require_student)],
     service: Annotated[QuizService, Depends(QuizService)],
 ):
     """Retrieve quiz questions and options without answer keys for a student test session."""
