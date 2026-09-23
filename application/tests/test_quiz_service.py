@@ -63,6 +63,34 @@ def test_create_quiz_invalid_options():
     assert exc_info.value.status_code == 400
     assert "exactly one correct option" in exc_info.value.detail
 
+def test_create_quiz_identical_options():
+    mock_repo = MagicMock()
+    service = QuizService(repo=mock_repo)
+    
+    # 2 identical options (case/space differences)
+    payload = QuizCreateRequest(
+        title="Bad Quiz 2",
+        subject="Testing",
+        time_limit_minutes=10,
+        passing_score_percentage=50,
+        questions=[
+            QuestionCreate(
+                prompt="Is this a test?",
+                points=1,
+                options=[
+                    OptionCreate(text=" Yes ", is_correct=True),
+                    OptionCreate(text="yes", is_correct=False)
+                ]
+            )
+        ]
+    )
+    
+    with pytest.raises(HTTPException) as exc_info:
+        service.create_quiz(payload)
+    
+    assert exc_info.value.status_code == 400
+    assert "at least two distinct options" in exc_info.value.detail
+
 def test_get_quiz_sanitized_success():
     mock_repo = MagicMock()
     service = QuizService(repo=mock_repo)

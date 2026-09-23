@@ -66,13 +66,19 @@ class QuizService:
         )
 
     def create_quiz(self, payload: QuizCreateRequest) -> QuizSummaryResponse:
-        # Domain validation: enforce at least one correct option per question
+        # Domain validation: enforce exactly one correct option per question and at least two distinct options
         for idx, q in enumerate(payload.questions):
             correct_count = sum(1 for o in q.options if o.is_correct)
             if correct_count != 1:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Question #{idx + 1} must contain exactly one correct option.",
+                )
+            distinct_options = {o.text.strip().lower() for o in q.options}
+            if len(distinct_options) < 2:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Question #{idx + 1} must contain at least two distinct options.",
                 )
 
         quiz_id = str(uuid.uuid4())
