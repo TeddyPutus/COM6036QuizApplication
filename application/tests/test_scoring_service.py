@@ -158,3 +158,97 @@ def test_evaluate_submission_partial_answers():
     assert result.total_points == 10
     assert result.score == 50.0
 
+
+def test_evaluate_submission_attempt_not_found():
+    mock_attempt_repo = MagicMock()
+    mock_attempt_repo.get_attempt_by_id.return_value = None
+    service = ScoringService(attempt_repo=mock_attempt_repo, quiz_repo=MagicMock())
+
+    with pytest.raises(HTTPException) as exc:
+        service.evaluate_submission(user_id="u1", attempt_id="invalid", answers=[])
+    assert exc.value.status_code == 404
+    assert "not found" in exc.value.detail.lower()
+
+
+def test_evaluate_submission_wrong_user():
+    mock_attempt_repo = MagicMock()
+    now = datetime.now(timezone.utc)
+    mock_attempt_repo.get_attempt_by_id.return_value = AttemptEntity(
+        id="a1", user_id="u2", quiz_id="q1", started_at=now, expires_at=now + timedelta(minutes=10)
+    )
+    service = ScoringService(attempt_repo=mock_attempt_repo, quiz_repo=MagicMock())
+
+    with pytest.raises(HTTPException) as exc:
+        service.evaluate_submission(user_id="u1", attempt_id="a1", answers=[])
+    assert exc.value.status_code == 403
+    assert "not authorized" in exc.value.detail.lower()
+
+
+def test_evaluate_submission_quiz_not_found():
+    mock_attempt_repo = MagicMock()
+    mock_quiz_repo = MagicMock()
+    now = datetime.now(timezone.utc)
+    mock_attempt_repo.get_attempt_by_id.return_value = AttemptEntity(
+        id="a1", user_id="u1", quiz_id="q1", started_at=now, expires_at=now + timedelta(minutes=10)
+    )
+    mock_quiz_repo.get_by_id.return_value = None
+
+    service = ScoringService(attempt_repo=mock_attempt_repo, quiz_repo=mock_quiz_repo)
+    with pytest.raises(HTTPException) as exc:
+        service.evaluate_submission(user_id="u1", attempt_id="a1", answers=[])
+    assert exc.value.status_code == 404
+    assert "no longer exists" in exc.value.detail.lower()
+
+
+def test_evaluate_submission_within_grace_period():
+    mock_attempt_repo = MagicMock()
+    mock_quiz_repo = MagicMock()
+    now = datetime.now(timezone.utc)
+
+    # Expired exactly 15 seconds ago (within 30s grace period)
+    mock_attempt_repo.get_attempt_by_id.return_value = AttemptEntity(
+        id="a1", user_id="u1", quiz_id="q1",
+        started_at=now - timedelta(minutes=30),
+        expires_at=now - timedelta(seconds=15)
+    )
+
+    q1 = MockQuestion(id="q1_id", points=10, options=[MockOption(id="opt1", is_correct=True)])
+    mock_quiz_repo.get_by_id.return_value = MockQuiz(
+        id="q1", is_published=True, is_deleted=False, time_limit_minutes=30, passing_score_percentage=50, questions=[q1]
+    )
+
+    service = ScoringService(attempt_repo=mock_attempt_repo, quiz_repo=mock_quiz_repo)
+    result = service.evaluate_submission(user_id="u1", attempt_id="a1",
+                                         answers=[AnswerSubmission(question_id="q1_id", selected_option_id="opt1")])
+    assert result.passed is True
+
+
+def test_evaluate_submission_outside_grace_period():
+    mock_attempt_repo = MagicMock()
+    now = datetime.now(timezone.utc)
+
+    # Expired exactly 31 seconds ago (outside 30s grace period)
+    mock_attempt_repo.get_attempt_by_id.return_value = AttemptEntity(
+        id="a1", user_id="u1", quiz_id="q1",
+        started_at=now - timedelta(minutes=30),
+        expires_at=now - timedelta(seconds=31)
+    )
+
+    service = ScoringService(attempt_repo=mock_attempt_repo, quiz_repo=MagicMock())
+    with pytest.raises(HTTPException) as exc:
+        service.evaluate_submission(user_id="u1", attempt_id="a1", answers=[])
+    assert exc.value.status_code == 400
+    assert "time limit expired" in exc.value.detail.lower()
+
+
+def test_start_attempt_quiz_deleted():
+    mock_attempt_repo = MagicMock()
+    mock_quiz_repo = MagicMock()
+    mock_quiz_repo.get_by_id.return_value = MockQuiz(
+        id="q1", is_published=True, is_deleted=True, time_limit_minutes=30, passing_score_percentage=50, questions=[]
+    )
+    service = ScoringService(attempt_repo=mock_attempt_repo, quiz_repo=mock_quiz_repo)
+    with pytest.raises(HTTPException) as exc:
+        service.start_attempt(user_id="u1", quiz_id="q1")
+    assert exc.value.status_code == 404
+
