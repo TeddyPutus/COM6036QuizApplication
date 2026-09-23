@@ -50,9 +50,34 @@ Once the containers are successfully running, the services will be available at:
 
 ## 🧪 Running the Tests
 
-This repository contains three different test suites to ensure system reliability across all layers. **Make sure the application is actively running via compose before executing the tests.**
+This repository contains four different test suites to ensure system reliability across all layers. **Make sure the application is actively running via compose before executing the tests.**
 
-### 1. BDD API Tests (Behave)
+### 1. Backend Unit Tests (Pytest)
+These tests verify the internal logic of the backend application. You must set the python path for the application directory to be recognized as a module.
+
+**Windows (PowerShell):**
+```bash
+cd application
+# Install dependencies
+pip install -r requirements.txt
+pip install pytest httpx
+# Set PYTHONPATH and run tests
+$env:PYTHONPATH = "."
+pytest
+```
+
+**Mac/Linux:**
+```bash
+cd application
+# Install dependencies
+pip install -r requirements.txt
+pip install pytest httpx
+# Set PYTHONPATH and run tests
+export PYTHONPATH="."
+pytest
+```
+
+### 2. BDD API Tests (Behave)
 These test the backend endpoints directly using Behavior-Driven Development (Gherkin syntax).
 
 ```bash
@@ -63,7 +88,7 @@ pip install -r requirements.txt
 behave
 ```
 
-### 2. End-to-End UI Tests (Selenium)
+### 3. End-to-End UI Tests (Selenium)
 These tests spin up a headless Chrome browser to simulate a real user clicking through the frontend interface, testing both the Student and Instructor workflows.
 
 ```bash
@@ -74,7 +99,7 @@ pip install -r requirements.txt
 pytest test_e2e.py -v
 ```
 
-### 3. Load Testing (Gatling)
+### 4. Load Testing (Gatling)
 These tests bombard the system with concurrent attempts to ensure the backend and database can handle high traffic.
 
 ```bash
