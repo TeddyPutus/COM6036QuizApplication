@@ -78,6 +78,7 @@ pytest
 ```
 
 ### 2. BDD API Tests (Behave)
+NOTE: Application must be run via the docker compose file for these tests to complete.
 These test the backend endpoints directly using Behavior-Driven Development (Gherkin syntax).
 
 ```bash
@@ -89,6 +90,7 @@ behave
 ```
 
 ### 3. End-to-End UI Tests (Selenium)
+NOTE: Application must be run via the docker compose file for these tests to complete.
 These tests spin up a headless Chrome browser to simulate a real user clicking through the frontend interface, testing both the Student and Instructor workflows.
 
 ```bash
@@ -100,6 +102,7 @@ pytest test_e2e.py -v
 ```
 
 ### 4. Load Testing (Gatling)
+NOTE: Application must be run via the docker compose file for these tests to complete.
 These tests bombard the system with concurrent attempts to ensure the backend and database can handle high traffic.
 
 ```bash
